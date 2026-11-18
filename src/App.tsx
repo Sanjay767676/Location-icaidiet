@@ -1,69 +1,57 @@
 import { useState } from 'react';
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { DepartmentSelector } from './components/DepartmentSelector';
 import { LocationPermission } from './components/LocationPermission';
 import { NavigationScreen } from './components/NavigationScreen';
 import { DestinationReached } from './components/DestinationReached';
-import { departments } from './data/departments';
-import { routes } from './data/routes';
+import { conferenceRoute } from './data/routes';
 
-type AppState = 
+type AppState =
   | 'WELCOME'
-  | 'DEPARTMENT_SELECTION'
-  | 'LOCATION_PERMISSION'
   | 'NAVIGATION_STARTED'
   | 'DESTINATION_REACHED';
 
-function App() {
+export function App() {
   const [appState, setAppState] = useState<AppState>('WELCOME');
-  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
-  const selectedDepartment = departments.find(d => d.id === selectedDeptId);
-  const routeKeys = selectedDeptId ? routes[selectedDeptId] : [];
+  const handleStart = () => {
+    setShowPermissionModal(true);
+  };
+
+  const handlePermissionGranted = () => {
+    setShowPermissionModal(false);
+    setAppState('NAVIGATION_STARTED');
+  };
 
   const handleRestart = () => {
-    setSelectedDeptId(null);
-    setAppState('DEPARTMENT_SELECTION');
+    setAppState('NAVIGATION_STARTED');
   };
 
   return (
-    <>
+    <div className="app-viewport">
       {appState === 'WELCOME' && (
-        <WelcomeScreen onComplete={() => setAppState('DEPARTMENT_SELECTION')} />
+        <WelcomeScreen onComplete={handleStart} />
       )}
-      
-      {appState === 'DEPARTMENT_SELECTION' && (
-        <DepartmentSelector 
-          onSelect={(id) => {
-            setSelectedDeptId(id);
-            setAppState('LOCATION_PERMISSION');
-          }} 
-        />
-      )}
-      
-      {appState === 'LOCATION_PERMISSION' && (
-        <LocationPermission 
-          onPermissionGranted={() => setAppState('NAVIGATION_STARTED')}
-          onCancel={() => setAppState('DEPARTMENT_SELECTION')}
-        />
-      )}
-      
-      {appState === 'NAVIGATION_STARTED' && selectedDeptId && selectedDepartment && routeKeys.length > 0 && (
-        <NavigationScreen 
-          departmentId={selectedDeptId}
-          departmentName={selectedDepartment.name}
-          routeKeys={routeKeys}
-          onDestinationReached={() => setAppState('DESTINATION_REACHED')}
+
+      {showPermissionModal && (
+        <LocationPermission
+          onPermissionGranted={handlePermissionGranted}
+          onClose={() => setShowPermissionModal(false)}
         />
       )}
 
-      {appState === 'DESTINATION_REACHED' && selectedDepartment && (
-        <DestinationReached 
-          department={selectedDepartment}
+      {appState === 'NAVIGATION_STARTED' && (
+        <NavigationScreen
+          routeKeys={conferenceRoute}
+          onDestinationReached={() => setAppState('DESTINATION_REACHED')}
           onRestart={handleRestart}
         />
       )}
-    </>
+
+      {appState === 'DESTINATION_REACHED' && (
+        <DestinationReached onRestart={handleRestart} />
+      )}
+    </div>
   );
 }
 

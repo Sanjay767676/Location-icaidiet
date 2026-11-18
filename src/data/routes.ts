@@ -1,6 +1,7 @@
 export type RouteDefinition = string[];
 
-const universalRoute = [
+// The 8 campus checkpoints leading directly to the ICAIDIET'26 venue at the AI Campus
+export const conferenceRoute: RouteDefinition = [
   "mainGate",
   "lawn",
   "lawnStraight",
@@ -10,16 +11,3 @@ const universalRoute = [
   "auditorium",
   "aiCampus"
 ];
-
-// All departments share the same outdoor route to the AI Campus.
-export const routes: Record<string, RouteDefinition> = {
-  BME: universalRoute,
-  CIVIL: universalRoute,
-  ECE: universalRoute,
-  EEE: universalRoute,
-  FT: universalRoute,
-  MCT: universalRoute,
-  MECH: universalRoute,
-  AERO: universalRoute,
-  MMCT: universalRoute
-};

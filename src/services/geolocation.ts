@@ -2,6 +2,8 @@ export interface GeolocationPosition {
   latitude: number;
   longitude: number;
   accuracy: number;
+  heading: number | null;
+  speed: number | null;
 }
 
 export interface GeolocationError {
@@ -15,9 +17,6 @@ type ErrorCallback = (error: GeolocationError) => void;
 export class GeolocationService {
   private watchId: number | null = null;
 
-  /**
-   * Starts watching the user's GPS location.
-   */
   startWatching(onSuccess: SuccessCallback, onError: ErrorCallback) {
     if (!('geolocation' in navigator)) {
       onError({
@@ -33,6 +32,8 @@ export class GeolocationService {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
+          heading: position.coords.heading,
+          speed: position.coords.speed,
         });
       },
       (error) => {
@@ -43,15 +44,12 @@ export class GeolocationService {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 10000,
+        maximumAge: 1000,
+        timeout: 12000,
       }
     );
   }
 
-  /**
-   * Stops watching the user's GPS location.
-   */
   stopWatching() {
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);

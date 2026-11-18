@@ -1,22 +1,12 @@
-// Radius of the Earth in kilometers
-const EARTH_RADIUS_KM = 6371;
+const EARTH_RADIUS_METERS = 6371000;
 
-/**
- * Converts degrees to radians.
- */
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
 /**
- * Calculates the great-circle distance between two points on the Earth's surface
+ * Calculates great-circle distance between two geographic coordinates in meters
  * using the Haversine formula.
- *
- * @param lat1 Latitude of the first point in degrees
- * @param lon1 Longitude of the first point in degrees
- * @param lat2 Latitude of the second point in degrees
- * @param lon2 Longitude of the second point in degrees
- * @returns The distance in meters
  */
 export function calculateDistance(
   lat1: number,
@@ -33,11 +23,15 @@ export function calculateDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(rLat1) * Math.cos(rLat2);
-    
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  
-  const distanceKm = EARTH_RADIUS_KM * c;
-  
-  // Return distance in meters
-  return distanceKm * 1000;
+
+  return EARTH_RADIUS_METERS * c;
+}
+
+export function formatDistance(meters: number): string {
+  if (meters < 1000) {
+    return `${Math.round(meters)} m`;
+  }
+  return `${(meters / 1000).toFixed(1)} km`;
 }

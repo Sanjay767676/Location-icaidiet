@@ -1,41 +1,9 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useEffect, useRef } from 'react';
+import maplibregl, { Map, Marker } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { GeolocationPosition } from '../services/geolocation';
 import type { Coordinate } from '../data/coordinates';
-
-// Fix Leaflet's default icon path issues in React
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconRetinaUrl: iconRetina,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
-
-// Custom pulsing icon for the user's location
-const userIcon = L.divIcon({
-  className: 'custom-user-marker',
-  html: `<div style="
-    width: 20px; 
-    height: 20px; 
-    background-color: #111111; 
-    border-radius: 50%; 
-    border: 3px solid #ffbf00;
-    box-shadow: 0 0 0 0 rgba(17,17,17, 0.4);
-    animation: pulse 2s infinite;
-  "></div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10]
-});
+import { Locate, Navigation2 } from 'lucide-react';
 
 interface MapViewProps {
   currentLocation: GeolocationPosition | null;
@@ -43,92 +11,265 @@ interface MapViewProps {
   route?: Coordinate[];
 }
 
-// Helper component to auto-fit bounds
-const AutoFitBounds: React.FC<{
-  currentLoc: GeolocationPosition | null;
-  target: Coordinate;
-}> = ({ currentLoc, target }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (currentLoc && target) {
-      const bounds = L.latLngBounds(
-        [currentLoc.latitude, currentLoc.longitude],
-        [target.latitude, target.longitude]
-      );
-      // Pad bounds so markers aren't exactly on the edge
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
-    } else if (target) {
-      map.setView([target.latitude, target.longitude], 17);
+// 100% Free OpenStreetMap raster tiles (no API key required, zero watermark)
+const FREE_MAP_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    'osm-tiles': {
+      type: 'raster',
+      tiles: [
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }
-  }, [map, currentLoc, target]);
-
-  return null;
+  },
+  layers: [
+    {
+      id: 'osm-tiles-layer',
+      type: 'raster',
+      source: 'osm-tiles',
+      minzoom: 0,
+      maxzoom: 19
+    }
+  ]
 };
 
-export const MapView: React.FC<MapViewProps> = ({ currentLocation, targetWaypoint, route = [] }) => {
-  
-  // Default center if no user location (fallback to target)
-  const defaultCenter: [number, number] = [targetWaypoint.latitude, targetWaypoint.longitude];
-  
-  // Line positions: current location -> target waypoint -> rest of route
-  const routePositions: [number, number][] = [];
-  if (currentLocation) {
-    routePositions.push([currentLocation.latitude, currentLocation.longitude]);
-  }
-  
-  // Add all remaining waypoints in the route
-  route.forEach(wp => {
-    routePositions.push([wp.latitude, wp.longitude]);
-  });
+export const MapView: React.FC<MapViewProps> = ({
+  currentLocation,
+  targetWaypoint,
+  route = []
+}) => {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<Map | null>(null);
+  const userMarkerRef = useRef<Marker | null>(null);
+  const targetMarkerRef = useRef<Marker | null>(null);
+
+  // Initialize MapLibre GL
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    const initialLng = targetWaypoint.longitude;
+    const initialLat = targetWaypoint.latitude;
+
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: FREE_MAP_STYLE,
+      center: [initialLng, initialLat],
+      zoom: 17,
+      pitch: 35, // slight 3D perspective for natural navigation
+      maxZoom: 19,
+      minZoom: 13,
+      attributionControl: false
+    });
+
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+
+    map.on('load', () => {
+      // Add Route Line Source
+      map.addSource('route-line', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: []
+          }
+        }
+      });
+
+      // Main route polyline (clean solid / dashed line without yellow border)
+      map.addLayer({
+        id: 'route-line-core',
+        type: 'line',
+        source: 'route-line',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#0f172a',
+          'line-width': 4.5,
+          'line-dasharray': [2, 1]
+        }
+      });
+
+      mapRef.current = map;
+    });
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Update Route Polyline whenever location or route changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const coords: [number, number][] = [];
+
+    if (currentLocation) {
+      coords.push([currentLocation.longitude, currentLocation.latitude]);
+    }
+
+    route.forEach(wp => {
+      coords.push([wp.longitude, wp.latitude]);
+    });
+
+    const source = map.getSource('route-line') as maplibregl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: coords
+        }
+      });
+    }
+  }, [currentLocation, route]);
+
+  // Update Target Marker
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!targetMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'custom-target-marker';
+      el.innerHTML = `
+        <div class="target-pin">
+          <div class="target-pin-icon">📍</div>
+          <div class="target-pin-pulse"></div>
+        </div>
+      `;
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([targetWaypoint.longitude, targetWaypoint.latitude])
+        .setPopup(
+          new maplibregl.Popup({ offset: 25 }).setHTML(`
+            <div style="font-family: sans-serif; padding: 4px;">
+              <strong style="color: #0f172a; font-size: 13px;">${targetWaypoint.name}</strong>
+              <p style="margin: 2px 0 0; color: #475569; font-size: 11px;">Target Waypoint</p>
+            </div>
+          `)
+        )
+        .addTo(map);
+
+      targetMarkerRef.current = marker;
+    } else {
+      targetMarkerRef.current.setLngLat([targetWaypoint.longitude, targetWaypoint.latitude]);
+    }
+  }, [targetWaypoint]);
+
+  // Update User Location Marker
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!currentLocation) {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      return;
+    }
+
+    if (!userMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'custom-user-marker';
+      el.innerHTML = `
+        <div class="user-beacon">
+          <div class="user-beacon-core"></div>
+          <div class="user-beacon-ring"></div>
+        </div>
+      `;
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([currentLocation.longitude, currentLocation.latitude])
+        .setPopup(
+          new maplibregl.Popup({ offset: 15 }).setHTML(`
+            <div style="font-family: sans-serif; padding: 4px;">
+              <strong style="color: #0f172a; font-size: 12px;">You are here</strong>
+            </div>
+          `)
+        )
+        .addTo(map);
+
+      userMarkerRef.current = marker;
+    } else {
+      userMarkerRef.current.setLngLat([currentLocation.longitude, currentLocation.latitude]);
+    }
+  }, [currentLocation]);
+
+  // Auto-fit bounds
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (currentLocation && targetWaypoint) {
+      const bounds = new maplibregl.LngLatBounds();
+      bounds.extend([currentLocation.longitude, currentLocation.latitude]);
+      bounds.extend([targetWaypoint.longitude, targetWaypoint.latitude]);
+
+      map.fitBounds(bounds, {
+        padding: { top: 70, bottom: 70, left: 50, right: 50 },
+        maxZoom: 18,
+        duration: 1200
+      });
+    } else if (targetWaypoint) {
+      map.flyTo({
+        center: [targetWaypoint.longitude, targetWaypoint.latitude],
+        zoom: 17,
+        duration: 1000
+      });
+    }
+  }, [currentLocation, targetWaypoint]);
+
+  const handleRecenter = () => {
+    if (mapRef.current && currentLocation) {
+      mapRef.current.flyTo({
+        center: [currentLocation.longitude, currentLocation.latitude],
+        zoom: 18,
+        pitch: 45,
+        duration: 1000
+      });
+    }
+  };
+
+  const handleResetNorth = () => {
+    if (mapRef.current) {
+      mapRef.current.resetNorthPitch({ duration: 600 });
+    }
+  };
 
   return (
-    <div className="map-container" style={{ width: '100%', height: '100%' }}>
-      <MapContainer 
-        center={defaultCenter} 
-        zoom={17} 
-        scrollWheelZoom={true}
-        style={{ width: '100%', height: '100%', zIndex: 1 }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        
-        {/* The Target Destination Marker */}
-        <Marker position={[targetWaypoint.latitude, targetWaypoint.longitude]}>
-          <Popup>
-            <strong>{targetWaypoint.name}</strong><br />
-            Destination
-          </Popup>
-        </Marker>
+    <div className="map-wrapper">
+      <div ref={mapContainerRef} className="maplibre-container" />
 
-        {/* The User's Current Location Marker */}
-        {currentLocation && (
-          <Marker 
-            position={[currentLocation.latitude, currentLocation.longitude]} 
-            icon={userIcon}
-          >
-            <Popup>
-              You are here
-            </Popup>
-          </Marker>
-        )}
-
-        {/* Draw a line between user and target */}
-        {routePositions.length > 0 && (
-          <Polyline 
-            positions={routePositions} 
-            color="#111111" 
-            weight={4} 
-            dashArray="10, 10" 
-            opacity={0.7}
-          />
-        )}
-
-        {/* Auto fit the map to show both points */}
-        <AutoFitBounds currentLoc={currentLocation} target={targetWaypoint} />
-      </MapContainer>
+      {/* Floating Map Controls */}
+      <div className="map-floating-controls">
+        <button
+          className="map-control-btn"
+          onClick={handleRecenter}
+          title="Center on my location"
+          disabled={!currentLocation}
+        >
+          <Locate size={18} />
+        </button>
+        <button
+          className="map-control-btn"
+          onClick={handleResetNorth}
+          title="Reset North orientation"
+        >
+          <Navigation2 size={18} />
+        </button>
+      </div>
     </div>
   );
 };
+
+export default MapView;

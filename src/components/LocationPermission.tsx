@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
+import { AlertCircle, ShieldCheck, ArrowRight, X } from 'lucide-react';
 
 interface LocationPermissionProps {
   onPermissionGranted: () => void;
-  onCancel: () => void;
+  onClose?: () => void;
 }
 
-export const LocationPermission: React.FC<LocationPermissionProps> = ({ 
-  onPermissionGranted, 
-  onCancel 
+export const LocationPermission: React.FC<LocationPermissionProps> = ({
+  onPermissionGranted,
+  onClose
 }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,12 +18,11 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
     setErrorMsg(null);
 
     if (!('geolocation' in navigator)) {
-      setErrorMsg('Location is not supported by your browser.');
+      setErrorMsg('Geolocation is not supported by this browser.');
       setIsLoading(false);
       return;
     }
 
-    // Request a single position just to trigger the permission prompt
     navigator.geolocation.getCurrentPosition(
       () => {
         setIsLoading(false);
@@ -32,59 +32,76 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
         setIsLoading(false);
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            setErrorMsg('Location permission was denied. Please enable it in your browser settings to continue.');
+            setErrorMsg('Location permission was denied. Please enable location access in your browser or device settings.');
             break;
           case error.POSITION_UNAVAILABLE:
-            setErrorMsg('Location information is unavailable. Please try again.');
+            setErrorMsg('GPS location is currently unavailable. Please verify your phone GPS is turned on.');
             break;
           case error.TIMEOUT:
-            setErrorMsg('The request to get user location timed out. Please try again.');
+            setErrorMsg('GPS request timed out. Please try again.');
             break;
           default:
-            setErrorMsg('An unknown error occurred.');
+            setErrorMsg('An unexpected error occurred while accessing GPS.');
             break;
         }
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 12000, enableHighAccuracy: true }
     );
   };
 
   return (
-    <div className="screen-container">
-      <h2>Location Access Required</h2>
-      
-      <div style={{ margin: '2rem 0', display: 'flex', justifyContent: 'center' }}>
-        <div className="pulse-dot" style={{ width: 64, height: 64, animationDuration: '3s' }}></div>
-      </div>
-      
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>
-        We need your location to guide you to your classroom on campus. 
-        Your location data is only used locally on your device and is not stored.
-      </p>
+    <div className="permission-modal-backdrop" onClick={onClose}>
+      <div
+        className="permission-modal-card"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="permission-modal-title"
+      >
+        {onClose && (
+          <button
+            type="button"
+            className="modal-close-btn"
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
+            <X size={20} />
+          </button>
+        )}
 
-      {errorMsg && (
-        <div style={{ 
-          color: 'var(--error-color)', 
-          backgroundColor: 'rgba(238, 0, 0, 0.1)', 
-          padding: '1rem', 
-          borderRadius: 'var(--radius-md)',
-          marginBottom: '2rem'
-        }}>
-          {errorMsg}
+        <h2 id="permission-modal-title" className="permission-modal-heading font-libre">
+          Enable GPS Navigation
+        </h2>
+
+        <p className="permission-modal-subheading">
+          Allow location access so we can guide you step-by-step from the campus entrance gate to the AI Campus conference hall.
+        </p>
+
+        <div className="privacy-pill">
+          <ShieldCheck size={16} />
+          <span>Used exclusively on-device for live walking guidance</span>
         </div>
-      )}
 
-      <div className="bottom-action" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <button onClick={requestPermission} disabled={isLoading}>
-          {isLoading ? 'Requesting...' : 'Allow Location Access'}
-        </button>
-        <button 
-          onClick={onCancel} 
-          style={{ backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
-        >
-          Cancel
-        </button>
+        {errorMsg && (
+          <div className="error-card">
+            <AlertCircle size={18} className="error-icon" />
+            <p>{errorMsg}</p>
+          </div>
+        )}
+
+        <div className="permission-modal-actions">
+          <button
+            className="primary-btn"
+            onClick={requestPermission}
+            disabled={isLoading}
+          >
+            <span>{isLoading ? 'Requesting GPS Access...' : 'Allow Location & Start Navigation'}</span>
+            <ArrowRight size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+export default LocationPermission;

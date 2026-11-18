@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# ICAIDIET'26 - Campus Venue Navigator
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interactive, live GPS navigation web application for attendees of **ICAIDIET'26** (*International Conference on AI-Driven Innovation in Engineering and Technology*) at **SNS College of Technology - AI Campus**.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **No Hall Selection Required:** Directly guides attendees through all sequential campus checkpoints from the Main Entrance to the AI Campus.
+- **MapLibre GL JS Engine:** 100% free, high-performance vector/raster map powered by OpenStreetMap tiles (zero API keys required, zero watermarks).
+- **Conference Typography & Color Palette:** Matches the official conference branding with solid cream-yellow theme (`#fdf08a`) and `Libre Baskerville` serif typography.
+- **On-Device GPS Guidance:** Real-time distance and proximity detection to each campus waypoint.
+- **Mobile First & Responsive:** Clean mobile viewport with full support for desktop browsers without horizontal overflow.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 18** + **TypeScript**
+- **Vite**
+- **MapLibre GL JS**
+- **Lucide React** Icons
 
-## Expanding the Oxlint configuration
+## Local Development
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+```bash
+# Install dependencies
+npm install
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+# Start local development server
+npm run dev
+
+# Build for production
+npm run build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Deployment
+
+Configured for immediate deployment on Vercel with single-page app rewrite rules in `vercel.json`.
+Hosted at: `location.icaidiet26.tech`

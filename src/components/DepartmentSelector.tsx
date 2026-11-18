@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { departments } from '../data/departments';
+import { Search, MapPin, ChevronDown, Check } from 'lucide-react';
 
 interface DepartmentSelectorProps {
   onSelect: (departmentId: string) => void;
@@ -8,11 +9,17 @@ interface DepartmentSelectorProps {
 export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({ onSelect }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedDepartment = departments.find(d => d.id === selectedId);
 
-  // Close dropdown when clicking outside
+  const filteredDepartments = departments.filter(d =>
+    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.rooms.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -30,114 +37,110 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({ onSelect
   };
 
   return (
-    <div className="screen-container" style={{ padding: '2rem 1rem' }}>
-      <h2 style={{ marginBottom: '2rem' }}>Choose your department</h2>
+    <div className="screen-container">
+      <div className="header-badge">
+        <MapPin size={14} />
+        <span>ICAIDIET'26 Presentation Venues</span>
+      </div>
 
-      <div
-        ref={dropdownRef}
-        style={{
-          width: '100%',
-          maxWidth: '400px',
-          position: 'relative',
-          marginBottom: '2rem',
-          zIndex: 50
-        }}
-      >
-        {/* Dropdown Trigger */}
+      <h1 className="screen-heading">Select Your Venue</h1>
+      <p className="screen-subheading">
+        Choose your conference presentation department or hall to start live campus guidance.
+      </p>
+
+      <div className="selector-wrapper" ref={dropdownRef}>
+        {/* Trigger Button */}
         <div
+          className={`dropdown-trigger ${isOpen ? 'active' : ''}`}
           onClick={() => setIsOpen(!isOpen)}
-          style={{
-            padding: '1rem 1.25rem',
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            border: '1px solid rgba(0,0,0,0.08)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            cursor: 'pointer',
-            fontWeight: 500,
-            color: selectedId ? '#111111' : '#666666',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {selectedDepartment ? selectedDepartment.name : "Select your department"}
-          </span>
-          <svg
-            width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', color: '#999', flexShrink: 0 }}
-          >
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+          <div className="dropdown-trigger-content">
+            <span className="dropdown-label">Destination</span>
+            <span className="dropdown-value">
+              {selectedDepartment ? selectedDepartment.name : "Choose Department / Hall"}
+            </span>
+          </div>
+          <ChevronDown
+            size={20}
+            className={`dropdown-chevron ${isOpen ? 'rotate' : ''}`}
+          />
         </div>
 
         {/* Dropdown Menu */}
         {isOpen && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 'calc(100% + 8px)',
-              left: 0,
-              right: 0,
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              border: '1px solid rgba(0,0,0,0.08)',
-              boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
-              padding: '0.5rem',
-              maxHeight: '300px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2px',
-              animation: 'fadeIn 0.2s ease-out'
-            }}
-          >
-            {departments.map((dept) => (
-              <div
-                key={dept.id}
-                onClick={() => {
-                  setSelectedId(dept.id);
-                  setIsOpen(false);
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f5f5f5';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-                style={{
-                  padding: '0.875rem 1rem',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '0.95rem',
-                  fontWeight: selectedId === dept.id ? 600 : 500,
-                  color: selectedId === dept.id ? 'var(--primary-color)' : '#333333',
-                  backgroundColor: 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  transition: 'background-color 0.15s ease',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}
-              >
-                {dept.name}
-              </div>
-            ))}
+          <div className="dropdown-menu">
+            <div className="dropdown-search">
+              <Search size={16} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search department, hall or room..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="dropdown-list">
+              {filteredDepartments.map((dept) => {
+                const isSelected = selectedId === dept.id;
+                return (
+                  <div
+                    key={dept.id}
+                    className={`dropdown-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedId(dept.id);
+                      setIsOpen(false);
+                      setSearchQuery('');
+                    }}
+                  >
+                    <div className="item-main">
+                      <span className="item-title">{dept.name}</span>
+                      <div className="item-badges">
+                        <span className="badge badge-subtle">{dept.floor}</span>
+                        <span className="badge badge-subtle">{dept.block}</span>
+                        <span className="badge badge-rooms">Rooms: {dept.rooms}</span>
+                      </div>
+                    </div>
+                    {isSelected && <Check size={18} className="item-check" />}
+                  </div>
+                );
+              })}
+              {filteredDepartments.length === 0 && (
+                <div className="dropdown-empty">No departments matching your search</div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      <div className="bottom-action" style={{ marginTop: '0', background: 'transparent' }}>
+      {selectedDepartment && (
+        <div className="selected-summary-card">
+          <div className="summary-row">
+            <span className="summary-label">Floor</span>
+            <span className="summary-val">{selectedDepartment.floor}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-label">Block</span>
+            <span className="summary-val">{selectedDepartment.block}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-label">Rooms</span>
+            <span className="summary-val">{selectedDepartment.rooms}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="bottom-action">
         <button
+          className="primary-btn"
           onClick={handleStart}
           disabled={!selectedId}
-          style={{ backgroundColor: '#111111', color: '#ffffff', padding: '1.25rem', borderRadius: '16px', fontSize: '1.1rem' }}
         >
-          Guide
+          Guide Me to Venue &rarr;
         </button>
       </div>
     </div>
   );
 };
+
+export default DepartmentSelector;
